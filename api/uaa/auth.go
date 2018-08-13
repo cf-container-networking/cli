@@ -18,7 +18,7 @@ type AuthResponse struct {
 
 // Authenticate sends a username and password to UAA then returns an access
 // token and a refresh token.
-func (client Client) Authenticate(ID string, secret string, grantType constant.GrantType) (string, string, error) {
+func (client Client) Authenticate(ID string, secret string, origin string, grantType constant.GrantType) (string, string, error) {
 	requestBody := url.Values{
 		"grant_type": {string(grantType)},
 	}
@@ -31,12 +31,20 @@ func (client Client) Authenticate(ID string, secret string, grantType constant.G
 		requestBody.Set("password", secret)
 	}
 
+	var query url.Values
+	if origin != "" {
+		query = url.Values{
+			"login_hint": {string("{\"origin\":\"" + origin + "\"}")},
+		}
+	}
+
 	request, err := client.newRequest(requestOptions{
 		RequestName: internal.PostOAuthTokenRequest,
 		Header: http.Header{
 			"Content-Type": {"application/x-www-form-urlencoded"},
 		},
-		Body: strings.NewReader(requestBody.Encode()),
+		Body:  strings.NewReader(requestBody.Encode()),
+		Query: query,
 	})
 
 	if err != nil {
