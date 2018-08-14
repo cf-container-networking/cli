@@ -10,11 +10,12 @@ import (
 )
 
 type FakeUAAClient struct {
-	AuthenticateStub        func(ID string, secret string, grantType constant.GrantType) (string, string, error)
+	AuthenticateStub        func(ID string, secret string, origin string, grantType constant.GrantType) (string, string, error)
 	authenticateMutex       sync.RWMutex
 	authenticateArgsForCall []struct {
 		ID        string
 		secret    string
+		origin    string
 		grantType constant.GrantType
 	}
 	authenticateReturns struct {
@@ -73,18 +74,19 @@ type FakeUAAClient struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeUAAClient) Authenticate(ID string, secret string, grantType constant.GrantType) (string, string, error) {
+func (fake *FakeUAAClient) Authenticate(ID string, secret string, origin string, grantType constant.GrantType) (string, string, error) {
 	fake.authenticateMutex.Lock()
 	ret, specificReturn := fake.authenticateReturnsOnCall[len(fake.authenticateArgsForCall)]
 	fake.authenticateArgsForCall = append(fake.authenticateArgsForCall, struct {
 		ID        string
 		secret    string
+		origin    string
 		grantType constant.GrantType
-	}{ID, secret, grantType})
-	fake.recordInvocation("Authenticate", []interface{}{ID, secret, grantType})
+	}{ID, secret, origin, grantType})
+	fake.recordInvocation("Authenticate", []interface{}{ID, secret, origin, grantType})
 	fake.authenticateMutex.Unlock()
 	if fake.AuthenticateStub != nil {
-		return fake.AuthenticateStub(ID, secret, grantType)
+		return fake.AuthenticateStub(ID, secret, origin, grantType)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2, ret.result3
@@ -98,10 +100,10 @@ func (fake *FakeUAAClient) AuthenticateCallCount() int {
 	return len(fake.authenticateArgsForCall)
 }
 
-func (fake *FakeUAAClient) AuthenticateArgsForCall(i int) (string, string, constant.GrantType) {
+func (fake *FakeUAAClient) AuthenticateArgsForCall(i int) (string, string, string, constant.GrantType) {
 	fake.authenticateMutex.RLock()
 	defer fake.authenticateMutex.RUnlock()
-	return fake.authenticateArgsForCall[i].ID, fake.authenticateArgsForCall[i].secret, fake.authenticateArgsForCall[i].grantType
+	return fake.authenticateArgsForCall[i].ID, fake.authenticateArgsForCall[i].secret, fake.authenticateArgsForCall[i].origin, fake.authenticateArgsForCall[i].grantType
 }
 
 func (fake *FakeUAAClient) AuthenticateReturns(result1 string, result2 string, result3 error) {
