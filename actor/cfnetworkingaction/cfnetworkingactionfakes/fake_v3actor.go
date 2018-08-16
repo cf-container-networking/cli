@@ -25,6 +25,22 @@ type FakeV3Actor struct {
 		result2 v3action.Warnings
 		result3 error
 	}
+	GetSpaceByNameAndOrganizationStub        func(spaceName string, orgGUID string) (v3action.Space, v3action.Warnings, error)
+	getSpaceByNameAndOrganizationMutex       sync.RWMutex
+	getSpaceByNameAndOrganizationArgsForCall []struct {
+		spaceName string
+		orgGUID   string
+	}
+	getSpaceByNameAndOrganizationReturns struct {
+		result1 v3action.Space
+		result2 v3action.Warnings
+		result3 error
+	}
+	getSpaceByNameAndOrganizationReturnsOnCall map[int]struct {
+		result1 v3action.Space
+		result2 v3action.Warnings
+		result3 error
+	}
 	GetApplicationsBySpaceStub        func(spaceGUID string) ([]v3action.Application, v3action.Warnings, error)
 	getApplicationsBySpaceMutex       sync.RWMutex
 	getApplicationsBySpaceArgsForCall []struct {
@@ -99,6 +115,61 @@ func (fake *FakeV3Actor) GetApplicationByNameAndSpaceReturnsOnCall(i int, result
 	}{result1, result2, result3}
 }
 
+func (fake *FakeV3Actor) GetSpaceByNameAndOrganization(spaceName string, orgGUID string) (v3action.Space, v3action.Warnings, error) {
+	fake.getSpaceByNameAndOrganizationMutex.Lock()
+	ret, specificReturn := fake.getSpaceByNameAndOrganizationReturnsOnCall[len(fake.getSpaceByNameAndOrganizationArgsForCall)]
+	fake.getSpaceByNameAndOrganizationArgsForCall = append(fake.getSpaceByNameAndOrganizationArgsForCall, struct {
+		spaceName string
+		orgGUID   string
+	}{spaceName, orgGUID})
+	fake.recordInvocation("GetSpaceByNameAndOrganization", []interface{}{spaceName, orgGUID})
+	fake.getSpaceByNameAndOrganizationMutex.Unlock()
+	if fake.GetSpaceByNameAndOrganizationStub != nil {
+		return fake.GetSpaceByNameAndOrganizationStub(spaceName, orgGUID)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2, ret.result3
+	}
+	return fake.getSpaceByNameAndOrganizationReturns.result1, fake.getSpaceByNameAndOrganizationReturns.result2, fake.getSpaceByNameAndOrganizationReturns.result3
+}
+
+func (fake *FakeV3Actor) GetSpaceByNameAndOrganizationCallCount() int {
+	fake.getSpaceByNameAndOrganizationMutex.RLock()
+	defer fake.getSpaceByNameAndOrganizationMutex.RUnlock()
+	return len(fake.getSpaceByNameAndOrganizationArgsForCall)
+}
+
+func (fake *FakeV3Actor) GetSpaceByNameAndOrganizationArgsForCall(i int) (string, string) {
+	fake.getSpaceByNameAndOrganizationMutex.RLock()
+	defer fake.getSpaceByNameAndOrganizationMutex.RUnlock()
+	return fake.getSpaceByNameAndOrganizationArgsForCall[i].spaceName, fake.getSpaceByNameAndOrganizationArgsForCall[i].orgGUID
+}
+
+func (fake *FakeV3Actor) GetSpaceByNameAndOrganizationReturns(result1 v3action.Space, result2 v3action.Warnings, result3 error) {
+	fake.GetSpaceByNameAndOrganizationStub = nil
+	fake.getSpaceByNameAndOrganizationReturns = struct {
+		result1 v3action.Space
+		result2 v3action.Warnings
+		result3 error
+	}{result1, result2, result3}
+}
+
+func (fake *FakeV3Actor) GetSpaceByNameAndOrganizationReturnsOnCall(i int, result1 v3action.Space, result2 v3action.Warnings, result3 error) {
+	fake.GetSpaceByNameAndOrganizationStub = nil
+	if fake.getSpaceByNameAndOrganizationReturnsOnCall == nil {
+		fake.getSpaceByNameAndOrganizationReturnsOnCall = make(map[int]struct {
+			result1 v3action.Space
+			result2 v3action.Warnings
+			result3 error
+		})
+	}
+	fake.getSpaceByNameAndOrganizationReturnsOnCall[i] = struct {
+		result1 v3action.Space
+		result2 v3action.Warnings
+		result3 error
+	}{result1, result2, result3}
+}
+
 func (fake *FakeV3Actor) GetApplicationsBySpace(spaceGUID string) ([]v3action.Application, v3action.Warnings, error) {
 	fake.getApplicationsBySpaceMutex.Lock()
 	ret, specificReturn := fake.getApplicationsBySpaceReturnsOnCall[len(fake.getApplicationsBySpaceArgsForCall)]
@@ -158,6 +229,8 @@ func (fake *FakeV3Actor) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.getApplicationByNameAndSpaceMutex.RLock()
 	defer fake.getApplicationByNameAndSpaceMutex.RUnlock()
+	fake.getSpaceByNameAndOrganizationMutex.RLock()
+	defer fake.getSpaceByNameAndOrganizationMutex.RUnlock()
 	fake.getApplicationsBySpaceMutex.RLock()
 	defer fake.getApplicationsBySpaceMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}

@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"code.cloudfoundry.org/cli/actor/cfnetworkingaction"
+	"code.cloudfoundry.org/cli/actor/v3action"
 	"code.cloudfoundry.org/cli/command/v3"
 )
 
@@ -37,6 +38,22 @@ type FakeNetworkPoliciesActor struct {
 	}
 	networkPoliciesBySpaceReturnsOnCall map[int]struct {
 		result1 []cfnetworkingaction.Policy
+		result2 cfnetworkingaction.Warnings
+		result3 error
+	}
+	GetSpaceByNameAndOrganizationStub        func(spaceName string, orgGUID string) (v3action.Space, cfnetworkingaction.Warnings, error)
+	getSpaceByNameAndOrganizationMutex       sync.RWMutex
+	getSpaceByNameAndOrganizationArgsForCall []struct {
+		spaceName string
+		orgGUID   string
+	}
+	getSpaceByNameAndOrganizationReturns struct {
+		result1 v3action.Space
+		result2 cfnetworkingaction.Warnings
+		result3 error
+	}
+	getSpaceByNameAndOrganizationReturnsOnCall map[int]struct {
+		result1 v3action.Space
 		result2 cfnetworkingaction.Warnings
 		result3 error
 	}
@@ -153,6 +170,61 @@ func (fake *FakeNetworkPoliciesActor) NetworkPoliciesBySpaceReturnsOnCall(i int,
 	}{result1, result2, result3}
 }
 
+func (fake *FakeNetworkPoliciesActor) GetSpaceByNameAndOrganization(spaceName string, orgGUID string) (v3action.Space, cfnetworkingaction.Warnings, error) {
+	fake.getSpaceByNameAndOrganizationMutex.Lock()
+	ret, specificReturn := fake.getSpaceByNameAndOrganizationReturnsOnCall[len(fake.getSpaceByNameAndOrganizationArgsForCall)]
+	fake.getSpaceByNameAndOrganizationArgsForCall = append(fake.getSpaceByNameAndOrganizationArgsForCall, struct {
+		spaceName string
+		orgGUID   string
+	}{spaceName, orgGUID})
+	fake.recordInvocation("GetSpaceByNameAndOrganization", []interface{}{spaceName, orgGUID})
+	fake.getSpaceByNameAndOrganizationMutex.Unlock()
+	if fake.GetSpaceByNameAndOrganizationStub != nil {
+		return fake.GetSpaceByNameAndOrganizationStub(spaceName, orgGUID)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2, ret.result3
+	}
+	return fake.getSpaceByNameAndOrganizationReturns.result1, fake.getSpaceByNameAndOrganizationReturns.result2, fake.getSpaceByNameAndOrganizationReturns.result3
+}
+
+func (fake *FakeNetworkPoliciesActor) GetSpaceByNameAndOrganizationCallCount() int {
+	fake.getSpaceByNameAndOrganizationMutex.RLock()
+	defer fake.getSpaceByNameAndOrganizationMutex.RUnlock()
+	return len(fake.getSpaceByNameAndOrganizationArgsForCall)
+}
+
+func (fake *FakeNetworkPoliciesActor) GetSpaceByNameAndOrganizationArgsForCall(i int) (string, string) {
+	fake.getSpaceByNameAndOrganizationMutex.RLock()
+	defer fake.getSpaceByNameAndOrganizationMutex.RUnlock()
+	return fake.getSpaceByNameAndOrganizationArgsForCall[i].spaceName, fake.getSpaceByNameAndOrganizationArgsForCall[i].orgGUID
+}
+
+func (fake *FakeNetworkPoliciesActor) GetSpaceByNameAndOrganizationReturns(result1 v3action.Space, result2 cfnetworkingaction.Warnings, result3 error) {
+	fake.GetSpaceByNameAndOrganizationStub = nil
+	fake.getSpaceByNameAndOrganizationReturns = struct {
+		result1 v3action.Space
+		result2 cfnetworkingaction.Warnings
+		result3 error
+	}{result1, result2, result3}
+}
+
+func (fake *FakeNetworkPoliciesActor) GetSpaceByNameAndOrganizationReturnsOnCall(i int, result1 v3action.Space, result2 cfnetworkingaction.Warnings, result3 error) {
+	fake.GetSpaceByNameAndOrganizationStub = nil
+	if fake.getSpaceByNameAndOrganizationReturnsOnCall == nil {
+		fake.getSpaceByNameAndOrganizationReturnsOnCall = make(map[int]struct {
+			result1 v3action.Space
+			result2 cfnetworkingaction.Warnings
+			result3 error
+		})
+	}
+	fake.getSpaceByNameAndOrganizationReturnsOnCall[i] = struct {
+		result1 v3action.Space
+		result2 cfnetworkingaction.Warnings
+		result3 error
+	}{result1, result2, result3}
+}
+
 func (fake *FakeNetworkPoliciesActor) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -160,6 +232,8 @@ func (fake *FakeNetworkPoliciesActor) Invocations() map[string][][]interface{} {
 	defer fake.networkPoliciesBySpaceAndAppNameMutex.RUnlock()
 	fake.networkPoliciesBySpaceMutex.RLock()
 	defer fake.networkPoliciesBySpaceMutex.RUnlock()
+	fake.getSpaceByNameAndOrganizationMutex.RLock()
+	defer fake.getSpaceByNameAndOrganizationMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

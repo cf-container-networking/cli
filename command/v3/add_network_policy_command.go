@@ -1,6 +1,7 @@
 package v3
 
 import (
+	"errors"
 	"net/http"
 
 	"code.cloudfoundry.org/cli/actor/cfnetworkingaction"
@@ -16,12 +17,14 @@ import (
 //go:generate counterfeiter . AddNetworkPolicyActor
 
 type AddNetworkPolicyActor interface {
-	AddNetworkPolicy(spaceGUID string, srcAppName string, destAppName string, protocol string, startPort int, endPort int) (cfnetworkingaction.Warnings, error)
+	AddNetworkPolicy(spaceGUID, srcName, srcType, destAppName, destIPStart, destIPEnd, protocol string, startPort, endPort int) (cfnetworkingaction.Warnings, error)
 }
 
 type AddNetworkPolicyCommand struct {
 	RequiredArgs   flag.AddNetworkPolicyArgs `positional-args:"yes"`
-	DestinationApp string                    `long:"destination-app" required:"true" description:"Name of app to connect to"`
+	SourceType     string                    `long:"source-type" description:"The type of source for policy; either app or space (Default: app)."`
+	DestinationApp string                    `long:"destination-app" description:"Name of app to connect to"`
+	DestinationIPs flag.NetworkIPRange       `long:"destination-ips" description:"IP or IP range to connect to e.g. 1.2.3.4 or 1.2.3.4-1.2.3.5"`
 	Port           flag.NetworkPort          `long:"port" description:"Port or range of ports for connection to destination app (Default: 8080)"`
 	Protocol       flag.NetworkProtocol      `long:"protocol" description:"Protocol to connect apps with (Default: tcp)"`
 
@@ -70,6 +73,18 @@ func (cmd AddNetworkPolicyCommand) Execute(args []string) error {
 		cmd.Port.EndPort = 8080
 	}
 
+	if cmd.DestinationApp != "" && cmd.DestinationIPs.Start != "" {
+		return errors.New("cannot specify both --destination-ips and --destination-app at the same time")
+	}
+
+	if cmd.DestinationApp == "" && cmd.DestinationIPs.Start == "" {
+		return errors.New("must specify either --destination-ips or --destination-app")
+	}
+
+	if cmd.SourceType == "" {
+		cmd.SourceType = "app"
+	}
+
 	err := cmd.SharedActor.CheckTarget(true, true)
 	if err != nil {
 		return err
@@ -79,14 +94,15 @@ func (cmd AddNetworkPolicyCommand) Execute(args []string) error {
 	if err != nil {
 		return err
 	}
-	cmd.UI.DisplayTextWithFlavor("Adding network policy to app {{.SrcAppName}} in org {{.Org}} / space {{.Space}} as {{.User}}...", map[string]interface{}{
-		"SrcAppName": cmd.RequiredArgs.SourceApp,
-		"Org":        cmd.Config.TargetedOrganization().Name,
-		"Space":      cmd.Config.TargetedSpace().Name,
-		"User":       user.Name,
+	cmd.UI.DisplayTextWithFlavor("Adding network policy to {{.SrcType}} {{.SrcName}} in org {{.Org}} / space {{.Space}} as {{.User}}...", map[string]interface{}{
+		"SrcType": cmd.SourceType,
+		"SrcName": cmd.RequiredArgs.SourceName,
+		"Org":     cmd.Config.TargetedOrganization().Name,
+		"Space":   cmd.Config.TargetedSpace().Name,
+		"User":    user.Name,
 	})
 
-	warnings, err := cmd.Actor.AddNetworkPolicy(cmd.Config.TargetedSpace().GUID, cmd.RequiredArgs.SourceApp, cmd.DestinationApp, cmd.Protocol.Protocol, cmd.Port.StartPort, cmd.Port.EndPort)
+	warnings, err := cmd.Actor.AddNetworkPolicy(cmd.Config.TargetedSpace().GUID, cmd.RequiredArgs.SourceName, cmd.SourceType, cmd.DestinationApp, cmd.DestinationIPs.Start, cmd.DestinationIPs.End, cmd.Protocol.Protocol, cmd.Port.StartPort, cmd.Port.EndPort)
 	cmd.UI.DisplayWarnings(warnings)
 	if err != nil {
 		return err

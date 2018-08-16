@@ -9,12 +9,15 @@ import (
 )
 
 type FakeAddNetworkPolicyActor struct {
-	AddNetworkPolicyStub        func(spaceGUID string, srcAppName string, destAppName string, protocol string, startPort int, endPort int) (cfnetworkingaction.Warnings, error)
+	AddNetworkPolicyStub        func(spaceGUID, srcName, srcType, destAppName, destIPStart, destIPEnd, protocol string, startPort, endPort int) (cfnetworkingaction.Warnings, error)
 	addNetworkPolicyMutex       sync.RWMutex
 	addNetworkPolicyArgsForCall []struct {
 		spaceGUID   string
-		srcAppName  string
+		srcName     string
+		srcType     string
 		destAppName string
+		destIPStart string
+		destIPEnd   string
 		protocol    string
 		startPort   int
 		endPort     int
@@ -31,21 +34,24 @@ type FakeAddNetworkPolicyActor struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeAddNetworkPolicyActor) AddNetworkPolicy(spaceGUID string, srcAppName string, destAppName string, protocol string, startPort int, endPort int) (cfnetworkingaction.Warnings, error) {
+func (fake *FakeAddNetworkPolicyActor) AddNetworkPolicy(spaceGUID string, srcName string, srcType string, destAppName string, destIPStart string, destIPEnd string, protocol string, startPort int, endPort int) (cfnetworkingaction.Warnings, error) {
 	fake.addNetworkPolicyMutex.Lock()
 	ret, specificReturn := fake.addNetworkPolicyReturnsOnCall[len(fake.addNetworkPolicyArgsForCall)]
 	fake.addNetworkPolicyArgsForCall = append(fake.addNetworkPolicyArgsForCall, struct {
 		spaceGUID   string
-		srcAppName  string
+		srcName     string
+		srcType     string
 		destAppName string
+		destIPStart string
+		destIPEnd   string
 		protocol    string
 		startPort   int
 		endPort     int
-	}{spaceGUID, srcAppName, destAppName, protocol, startPort, endPort})
-	fake.recordInvocation("AddNetworkPolicy", []interface{}{spaceGUID, srcAppName, destAppName, protocol, startPort, endPort})
+	}{spaceGUID, srcName, srcType, destAppName, destIPStart, destIPEnd, protocol, startPort, endPort})
+	fake.recordInvocation("AddNetworkPolicy", []interface{}{spaceGUID, srcName, srcType, destAppName, destIPStart, destIPEnd, protocol, startPort, endPort})
 	fake.addNetworkPolicyMutex.Unlock()
 	if fake.AddNetworkPolicyStub != nil {
-		return fake.AddNetworkPolicyStub(spaceGUID, srcAppName, destAppName, protocol, startPort, endPort)
+		return fake.AddNetworkPolicyStub(spaceGUID, srcName, srcType, destAppName, destIPStart, destIPEnd, protocol, startPort, endPort)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -59,10 +65,10 @@ func (fake *FakeAddNetworkPolicyActor) AddNetworkPolicyCallCount() int {
 	return len(fake.addNetworkPolicyArgsForCall)
 }
 
-func (fake *FakeAddNetworkPolicyActor) AddNetworkPolicyArgsForCall(i int) (string, string, string, string, int, int) {
+func (fake *FakeAddNetworkPolicyActor) AddNetworkPolicyArgsForCall(i int) (string, string, string, string, string, string, string, int, int) {
 	fake.addNetworkPolicyMutex.RLock()
 	defer fake.addNetworkPolicyMutex.RUnlock()
-	return fake.addNetworkPolicyArgsForCall[i].spaceGUID, fake.addNetworkPolicyArgsForCall[i].srcAppName, fake.addNetworkPolicyArgsForCall[i].destAppName, fake.addNetworkPolicyArgsForCall[i].protocol, fake.addNetworkPolicyArgsForCall[i].startPort, fake.addNetworkPolicyArgsForCall[i].endPort
+	return fake.addNetworkPolicyArgsForCall[i].spaceGUID, fake.addNetworkPolicyArgsForCall[i].srcName, fake.addNetworkPolicyArgsForCall[i].srcType, fake.addNetworkPolicyArgsForCall[i].destAppName, fake.addNetworkPolicyArgsForCall[i].destIPStart, fake.addNetworkPolicyArgsForCall[i].destIPEnd, fake.addNetworkPolicyArgsForCall[i].protocol, fake.addNetworkPolicyArgsForCall[i].startPort, fake.addNetworkPolicyArgsForCall[i].endPort
 }
 
 func (fake *FakeAddNetworkPolicyActor) AddNetworkPolicyReturns(result1 cfnetworkingaction.Warnings, result2 error) {

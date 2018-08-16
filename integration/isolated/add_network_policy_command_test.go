@@ -122,6 +122,24 @@ var _ = Describe("add-network-policy command", func() {
 					Eventually(session).Should(Exit(0))
 				})
 			})
+
+			Context("when the destination is an ip range", func() {
+				It("creates an egress policy", func() {
+					session := helpers.CF("add-network-policy", appName, "--source-type", "app", "--destination-ips", "1.2.3.4-1.2.3.5", "--port", "8080-8090", "--protocol", "udp")
+
+					username, _ := helpers.GetCredentials()
+					Eventually(session).Should(Say(`Adding network policy to app %s in org %s / space %s as %s\.\.\.`, appName, orgName, spaceName, username))
+					Eventually(session).Should(Say("OK"))
+					Eventually(session).Should(Exit(0))
+
+					session = helpers.CF("network-policies")
+					Eventually(session).Should(Say(`Listing network policies in org %s / space %s as %s\.\.\.`, orgName, spaceName, username))
+					Consistently(session).ShouldNot(Say("OK"))
+					Eventually(session).Should(Say("source\\s+source type\\s+destination\\s+destination type\\s+protocol\\s+ports"))
+					Eventually(session).Should(Say("%s\\s+app\\s+1.2.3.4-1.2.3.5\\s+ip\\s+udp\\s+8080-8090", appName))
+					Eventually(session).Should(Exit(0))
+				})
+			})
 		})
 
 		Context("when the source app does not exist", func() {

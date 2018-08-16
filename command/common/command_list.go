@@ -42,7 +42,7 @@ type commandList struct {
 	V3SSH                v3.V3SSHCommand                `command:"v3-ssh" description:"SSH to an application container instance"`
 
 	AddPluginRepo                      plugin.AddPluginRepoCommand                  `command:"add-plugin-repo" description:"Add a new plugin repository"`
-	AddNetworkPolicy                   v3.AddNetworkPolicyCommand                   `command:"add-network-policy" description:"Create policy to allow direct network traffic from one app to another"`
+	AddNetworkPolicy                   v3.AddNetworkPolicyCommand                   `command:"add-network-policy" description:"Create policy to allow outbound and container-to-container traffic"`
 	AllowSpaceSSH                      v2.AllowSpaceSSHCommand                      `command:"allow-space-ssh" description:"Allow SSH access for the space"`
 	Api                                v2.ApiCommand                                `command:"api" description:"Set or view target api url"`
 	Apps                               v2.AppsCommand                               `command:"apps" alias:"a" description:"List all apps in the target space"`

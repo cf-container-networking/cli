@@ -44,9 +44,10 @@ var _ = Describe("add-network-policy Command", func() {
 			Config:         fakeConfig,
 			SharedActor:    fakeSharedActor,
 			Actor:          fakeActor,
-			RequiredArgs:   flag.AddNetworkPolicyArgs{SourceApp: srcApp},
+			RequiredArgs:   flag.AddNetworkPolicyArgs{SourceName: srcApp},
 			DestinationApp: destApp,
 		}
+		cmd.DestinationIPs = flag.NetworkIPRange{}
 
 		binaryName = "faceman"
 		fakeConfig.BinaryNameReturns(binaryName)
@@ -54,6 +55,47 @@ var _ = Describe("add-network-policy Command", func() {
 
 	JustBeforeEach(func() {
 		executeErr = cmd.Execute(nil)
+	})
+
+	Context("destination args", func() {
+		Context("when both --destination-app and --destination-ips are specified", func() {
+			BeforeEach(func() {
+				cmd.DestinationApp = "myapp"
+				cmd.DestinationIPs.UnmarshalFlag("1.2.3.4-1.2.4.5")
+			})
+			It("errors out with a message", func() {
+				Expect(executeErr).To(MatchError("cannot specify both --destination-ips and --destination-app at the same time"))
+			})
+		})
+		Context("when neither --destination-ips nor --destination-app is specified", func() {
+			BeforeEach(func() {
+				cmd.DestinationApp = ""
+				cmd.DestinationIPs = flag.NetworkIPRange{}
+			})
+
+			It("errors out with a message", func() {
+				Expect(executeErr).To(MatchError("must specify either --destination-ips or --destination-app"))
+			})
+		})
+		Context("when --destination-app but no --destination-ips", func() {
+			BeforeEach(func() {
+				cmd.DestinationApp = "myapp"
+			})
+			It("creates a c2c policy", func() {
+				Expect(executeErr).NotTo(HaveOccurred())
+				Expect(fakeActor.AddNetworkPolicyCallCount()).To(Equal(1))
+			})
+		})
+		Context("when --destination-ips but no --destination-app", func() {
+			BeforeEach(func() {
+				cmd.DestinationApp = ""
+				cmd.DestinationIPs.UnmarshalFlag("1.2.3.4-1.2.4.5")
+			})
+			It("creates an egress policy", func() {
+				Expect(executeErr).NotTo(HaveOccurred())
+				Expect(fakeActor.AddNetworkPolicyCallCount()).To(Equal(1))
+			})
+		})
 	})
 
 	Context("when checking target fails", func() {
@@ -114,7 +156,7 @@ var _ = Describe("add-network-policy Command", func() {
 				It("displays OK when no error occurs", func() {
 					Expect(executeErr).ToNot(HaveOccurred())
 					Expect(fakeActor.AddNetworkPolicyCallCount()).To(Equal(1))
-					passedSpaceGuid, passedSrcAppName, passedDestAppName, passedProtocol, passedStartPort, passedEndPort := fakeActor.AddNetworkPolicyArgsForCall(0)
+					passedSpaceGuid, passedSrcAppName, _, passedDestAppName, _, _, passedProtocol, passedStartPort, passedEndPort := fakeActor.AddNetworkPolicyArgsForCall(0)
 					Expect(passedSpaceGuid).To(Equal("some-space-guid"))
 					Expect(passedSrcAppName).To(Equal("some-app"))
 					Expect(passedDestAppName).To(Equal("some-other-app"))
@@ -145,12 +187,76 @@ var _ = Describe("add-network-policy Command", func() {
 			})
 		})
 
+		Context("when destination ips is specified", func() {
+			BeforeEach(func() {
+				fakeActor.AddNetworkPolicyReturns(cfnetworkingaction.Warnings{"some-warning-1", "some-warning-2"}, nil)
+
+				cmd.DestinationIPs = flag.NetworkIPRange{
+					Start: "1.2.3.4",
+					End:   "1.2.3.5",
+				}
+				cmd.DestinationApp = ""
+			})
+
+			It("displays OK when no error occurs", func() {
+				Expect(executeErr).ToNot(HaveOccurred())
+				Expect(fakeActor.AddNetworkPolicyCallCount()).To(Equal(1))
+				passedSpaceGuid, passedSrcAppName, _, passedDestAppName, passedDestIPStart, passedDestIPEnd, passedProtocol, passedStartPort, passedEndPort := fakeActor.AddNetworkPolicyArgsForCall(0)
+				Expect(passedSpaceGuid).To(Equal("some-space-guid"))
+				Expect(passedSrcAppName).To(Equal("some-app"))
+				Expect(passedDestAppName).To(Equal(""))
+				Expect(passedProtocol).To(Equal("tcp"))
+				Expect(passedStartPort).To(Equal(8080))
+				Expect(passedEndPort).To(Equal(8080))
+				Expect(passedDestIPStart).To(Equal("1.2.3.4"))
+				Expect(passedDestIPEnd).To(Equal("1.2.3.5"))
+
+				Expect(testUI.Out).To(Say(`Adding network policy to app %s in org some-org / space some-space as some-user\.\.\.`, srcApp))
+				Expect(testUI.Err).To(Say("some-warning-1"))
+				Expect(testUI.Err).To(Say("some-warning-2"))
+				Expect(testUI.Out).To(Say("OK"))
+			})
+		})
+
+		Context("when source type is specified", func() {
+			BeforeEach(func() {
+				fakeActor.AddNetworkPolicyReturns(cfnetworkingaction.Warnings{"some-warning-1", "some-warning-2"}, nil)
+
+				cmd.DestinationIPs = flag.NetworkIPRange{
+					Start: "1.2.3.4",
+					End:   "1.2.3.5",
+				}
+				cmd.DestinationApp = ""
+				cmd.SourceType = "space"
+			})
+
+			It("displays OK when no error occurs", func() {
+				Expect(executeErr).ToNot(HaveOccurred())
+				Expect(fakeActor.AddNetworkPolicyCallCount()).To(Equal(1))
+				passedSpaceGuid, passedSrcAppName, passedSrcType, passedDestAppName, passedDestIPStart, passedDestIPEnd, passedProtocol, passedStartPort, passedEndPort := fakeActor.AddNetworkPolicyArgsForCall(0)
+				Expect(passedSpaceGuid).To(Equal("some-space-guid"))
+				Expect(passedSrcAppName).To(Equal("some-app"))
+				Expect(passedSrcType).To(Equal("space"))
+				Expect(passedDestAppName).To(Equal(""))
+				Expect(passedProtocol).To(Equal("tcp"))
+				Expect(passedStartPort).To(Equal(8080))
+				Expect(passedEndPort).To(Equal(8080))
+				Expect(passedDestIPStart).To(Equal("1.2.3.4"))
+				Expect(passedDestIPEnd).To(Equal("1.2.3.5"))
+
+				Expect(testUI.Out).To(Say(`Adding network policy to space %s in org some-org / space some-space as some-user\.\.\.`, srcApp))
+				Expect(testUI.Err).To(Say("some-warning-1"))
+				Expect(testUI.Err).To(Say("some-warning-2"))
+				Expect(testUI.Out).To(Say("OK"))
+			})
+		})
+
 		Context("when both protocol and port are not specified", func() {
 			It("defaults protocol to 'tcp' and port to '8080'", func() {
 				Expect(executeErr).ToNot(HaveOccurred())
 
 				Expect(fakeActor.AddNetworkPolicyCallCount()).To(Equal(1))
-				_, _, _, passedProtocol, passedStartPort, passedEndPort := fakeActor.AddNetworkPolicyArgsForCall(0)
+				_, _, _, _, _, _, passedProtocol, passedStartPort, passedEndPort := fakeActor.AddNetworkPolicyArgsForCall(0)
 				Expect(passedProtocol).To(Equal("tcp"))
 				Expect(passedStartPort).To(Equal(8080))
 				Expect(passedEndPort).To(Equal(8080))

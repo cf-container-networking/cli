@@ -1,6 +1,7 @@
 package v3
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -20,10 +21,12 @@ import (
 type NetworkPoliciesActor interface {
 	NetworkPoliciesBySpaceAndAppName(spaceGUID string, srcAppName string) ([]cfnetworkingaction.Policy, cfnetworkingaction.Warnings, error)
 	NetworkPoliciesBySpace(spaceGUID string) ([]cfnetworkingaction.Policy, cfnetworkingaction.Warnings, error)
+	GetSpaceByNameAndOrganization(spaceName string, orgGUID string) (v3action.Space, cfnetworkingaction.Warnings, error)
 }
 
 type NetworkPoliciesCommand struct {
-	SourceApp string `long:"source" required:"false" description:"Source app to filter results by"`
+	Source string `long:"source" required:"false" description:"Source to filter results by"`
+	Type   string `long:"type" required:"false" description:"Type of the source filter; either app or space; default: app"`
 
 	usage           interface{} `usage:"CF_NAME network-policies [--source SOURCE_APP]"`
 	relatedCommands interface{} `related_commands:"add-network-policy, apps, remove-network-policy"`
@@ -69,17 +72,45 @@ func (cmd NetworkPoliciesCommand) Execute(args []string) error {
 		return err
 	}
 
+	if cmd.Type != "space" && cmd.Type != "app" && cmd.Type != "" {
+		return fmt.Errorf("unknown source type: %s", cmd.Type)
+	}
+
+	if cmd.Type != "" && cmd.Source == "" {
+		return errors.New("missing source argument")
+	}
+
 	var policies []cfnetworkingaction.Policy
 	var warnings cfnetworkingaction.Warnings
 
-	if cmd.SourceApp != "" {
-		cmd.UI.DisplayTextWithFlavor("Listing network policies of app {{.SrcAppName}} in org {{.Org}} / space {{.Space}} as {{.User}}...", map[string]interface{}{
-			"SrcAppName": cmd.SourceApp,
-			"Org":        cmd.Config.TargetedOrganization().Name,
-			"Space":      cmd.Config.TargetedSpace().Name,
-			"User":       user.Name,
-		})
-		policies, warnings, err = cmd.Actor.NetworkPoliciesBySpaceAndAppName(cmd.Config.TargetedSpace().GUID, cmd.SourceApp)
+	if cmd.Source != "" {
+		if cmd.Type == "" {
+			cmd.Type = "app"
+		}
+
+		if cmd.Type == "app" {
+			cmd.UI.DisplayTextWithFlavor("Listing network policies of app {{.SrcAppName}} in org {{.Org}} / space {{.Space}} as {{.User}}...", map[string]interface{}{
+				"SrcAppName": cmd.Source,
+				"Org":        cmd.Config.TargetedOrganization().Name,
+				"Space":      cmd.Config.TargetedSpace().Name,
+				"User":       user.Name,
+			})
+			policies, warnings, err = cmd.Actor.NetworkPoliciesBySpaceAndAppName(cmd.Config.TargetedSpace().GUID, cmd.Source)
+		} else {
+			var space v3action.Space
+			space, warnings, err = cmd.Actor.GetSpaceByNameAndOrganization(cmd.Source, cmd.Config.TargetedOrganization().GUID)
+			if err != nil {
+				return err
+			}
+			cmd.UI.DisplayTextWithFlavor("Listing network policies in org {{.Org}} / space {{.Space}} as {{.User}}...", map[string]interface{}{
+				"Org":   cmd.Config.TargetedOrganization().Name,
+				"Space": cmd.Source,
+				"User":  user.Name,
+			})
+			var w cfnetworkingaction.Warnings
+			policies, w, err = cmd.Actor.NetworkPoliciesBySpace(space.GUID)
+			warnings = append(warnings, w...)
+		}
 	} else {
 		cmd.UI.DisplayTextWithFlavor("Listing network policies in org {{.Org}} / space {{.Space}} as {{.User}}...", map[string]interface{}{
 			"Org":   cmd.Config.TargetedOrganization().Name,
@@ -99,7 +130,9 @@ func (cmd NetworkPoliciesCommand) Execute(args []string) error {
 	table := [][]string{
 		{
 			cmd.UI.TranslateText("source"),
+			cmd.UI.TranslateText("source type"),
 			cmd.UI.TranslateText("destination"),
+			cmd.UI.TranslateText("destination type"),
 			cmd.UI.TranslateText("protocol"),
 			cmd.UI.TranslateText("ports"),
 		},
@@ -108,13 +141,29 @@ func (cmd NetworkPoliciesCommand) Execute(args []string) error {
 	for _, policy := range policies {
 		var portEntry string
 		if policy.StartPort == policy.EndPort {
-			portEntry = strconv.Itoa(policy.StartPort)
+			if policy.StartPort == 0 {
+				portEntry = ""
+			} else {
+				portEntry = strconv.Itoa(policy.StartPort)
+			}
 		} else {
 			portEntry = fmt.Sprintf("%d-%d", policy.StartPort, policy.EndPort)
 		}
+
+		destinationName := policy.DestinationName
+		if policy.DestinationType == "ip" {
+			if policy.DestinationStartIP == policy.DestinationEndIP {
+				destinationName = policy.DestinationStartIP
+			} else {
+				destinationName = fmt.Sprintf("%s-%s", policy.DestinationStartIP, policy.DestinationEndIP)
+			}
+		}
+
 		table = append(table, []string{
 			policy.SourceName,
-			policy.DestinationName,
+			policy.SourceType,
+			destinationName,
+			policy.DestinationType,
 			policy.Protocol,
 			portEntry,
 		})

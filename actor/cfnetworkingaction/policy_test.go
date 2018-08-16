@@ -39,14 +39,29 @@ var _ = Describe("Policy", func() {
 	})
 
 	Describe("AddNetworkPolicy", func() {
+		var (
+			spaceGuid   string
+			srcApp      string
+			srcType     string
+			destApp     string
+			destIPStart string
+			destIPEnd   string
+			protocol    string
+			startPort   int
+			endPort     int
+		)
+
+		BeforeEach(func() {
+			spaceGuid = "space"
+			srcApp = "appA"
+			destApp = "appB"
+			protocol = "tcp"
+			startPort = 8080
+			endPort = 8090
+		})
+
 		JustBeforeEach(func() {
-			spaceGuid := "space"
-			srcApp := "appA"
-			destApp := "appB"
-			protocol := "tcp"
-			startPort := 8080
-			endPort := 8090
-			warnings, executeErr = actor.AddNetworkPolicy(spaceGuid, srcApp, destApp, protocol, startPort, endPort)
+			warnings, executeErr = actor.AddNetworkPolicy(spaceGuid, srcApp, srcType, destApp, destIPStart, destIPEnd, protocol, startPort, endPort)
 		})
 
 		It("creates policies", func() {
@@ -63,21 +78,64 @@ var _ = Describe("Policy", func() {
 			Expect(spaceGUID).To(Equal("space"))
 
 			Expect(fakeNetworkingClient.CreatePoliciesCallCount()).To(Equal(1))
-			Expect(fakeNetworkingClient.CreatePoliciesArgsForCall(0)).To(Equal([]cfnetv1.Policy{
-				{
-					Source: cfnetv1.PolicySource{
-						ID: "appAGUID",
-					},
-					Destination: cfnetv1.PolicyDestination{
-						ID:       "appBGUID",
-						Protocol: "tcp",
-						Ports: cfnetv1.Ports{
-							Start: 8080,
-							End:   8090,
+			Expect(fakeNetworkingClient.CreatePoliciesArgsForCall(0)).To(Equal(cfnetv1.PolicyList{
+				Policies: []cfnetv1.Policy{
+					{
+						Source: cfnetv1.PolicySource{
+							ID: "appAGUID",
+						},
+						Destination: cfnetv1.PolicyDestination{
+							ID:       "appBGUID",
+							Protocol: "tcp",
+							Ports: cfnetv1.Ports{
+								Start: 8080,
+								End:   8090,
+							},
 						},
 					},
 				},
 			}))
+		})
+
+		Context("when destination ips is provided", func() {
+			BeforeEach(func() {
+				destApp = ""
+				destIPStart = "1.2.3.4"
+				destIPEnd = "1.2.3.5"
+			})
+
+			It("creates egress policies", func() {
+				Expect(fakeV3Actor.GetApplicationByNameAndSpaceCallCount()).To(Equal(1))
+				passedAppName, passedSpaceGUID := fakeV3Actor.GetApplicationByNameAndSpaceArgsForCall(0)
+				Expect(passedAppName).To(Equal(srcApp))
+				Expect(passedSpaceGUID).To(Equal(spaceGuid))
+
+				Expect(fakeNetworkingClient.CreatePoliciesCallCount()).To(Equal(1))
+				Expect(fakeNetworkingClient.CreatePoliciesArgsForCall(0)).To(Equal(cfnetv1.PolicyList{
+					EgressPolicies: []cfnetv1.EgressPolicy{
+						{
+							Source: cfnetv1.EgressPolicySource{
+								ID: "appAGUID",
+							},
+							Destination: cfnetv1.EgressPolicyDestination{
+								IPs: []cfnetv1.IP{
+									{
+										Start: "1.2.3.4",
+										End:   "1.2.3.5",
+									},
+								},
+								Protocol: "tcp",
+								Ports: []cfnetv1.Ports{
+									{
+										Start: 8080,
+										End:   8090,
+									},
+								},
+							},
+						},
+					},
+				}))
+			})
 		})
 
 		Context("when getting the source app fails ", func() {
@@ -122,7 +180,8 @@ var _ = Describe("Policy", func() {
 		)
 
 		BeforeEach(func() {
-			fakeNetworkingClient.ListPoliciesReturns([]cfnetv1.Policy{{
+
+			policies := []cfnetv1.Policy{{
 				Source: cfnetv1.PolicySource{
 					ID: "appAGUID",
 				},
@@ -158,7 +217,29 @@ var _ = Describe("Policy", func() {
 						End:   8080,
 					},
 				},
-			}}, nil)
+			}}
+
+			egressPolicies := []cfnetv1.EgressPolicy{
+				{
+					Source: cfnetv1.EgressPolicySource{
+						ID:   "appCGUID",
+						Type: "app",
+					},
+					Destination: cfnetv1.EgressPolicyDestination{
+						IPs:      []cfnetv1.IP{{Start: "1.2.3.4", End: "1.2.3.5"}},
+						Protocol: "tcp",
+						Ports: []cfnetv1.Ports{{
+							Start: 8080,
+							End:   8080,
+						}},
+					},
+				}}
+
+			policyList := cfnetv1.PolicyList{
+				Policies:       policies,
+				EgressPolicies: egressPolicies,
+			}
+			fakeNetworkingClient.ListPoliciesReturns(policyList, nil)
 
 			fakeV3Actor.GetApplicationsBySpaceStub = func(_ string) ([]v3action.Application, v3action.Warnings, error) {
 				return []v3action.Application{
@@ -169,6 +250,10 @@ var _ = Describe("Policy", func() {
 					{
 						Name: "appB",
 						GUID: "appBGUID",
+					},
+					{
+						Name: "appC",
+						GUID: "appCGUID",
 					},
 				}, []string{"GetApplicationsBySpaceWarning"}, nil
 			}
@@ -189,7 +274,9 @@ var _ = Describe("Policy", func() {
 				Expect(policies).To(Equal(
 					[]Policy{{
 						SourceName:      "appA",
+						SourceType:      "app",
 						DestinationName: "appB",
+						DestinationType: "app",
 						Protocol:        "tcp",
 						StartPort:       8080,
 						EndPort:         8080,
@@ -244,7 +331,7 @@ var _ = Describe("Policy", func() {
 
 		Context("when listing the policy fails", func() {
 			BeforeEach(func() {
-				fakeNetworkingClient.ListPoliciesReturns([]cfnetv1.Policy{}, errors.New("apple"))
+				fakeNetworkingClient.ListPoliciesReturns(cfnetv1.PolicyList{}, errors.New("apple"))
 			})
 			It("returns a sensible error", func() {
 				Expect(executeErr).To(MatchError("apple"))
@@ -258,43 +345,48 @@ var _ = Describe("Policy", func() {
 		)
 
 		BeforeEach(func() {
-			fakeNetworkingClient.ListPoliciesReturns([]cfnetv1.Policy{{
-				Source: cfnetv1.PolicySource{
-					ID: "appAGUID",
-				},
-				Destination: cfnetv1.PolicyDestination{
-					ID:       "appBGUID",
-					Protocol: "tcp",
-					Ports: cfnetv1.Ports{
-						Start: 8080,
-						End:   8080,
+			fakeNetworkingClient.ListPoliciesReturns(cfnetv1.PolicyList{
+				Policies: []cfnetv1.Policy{{
+					Source: cfnetv1.PolicySource{
+						ID: "appAGUID",
 					},
-				},
-			}, {
-				Source: cfnetv1.PolicySource{
-					ID: "appBGUID",
-				},
-				Destination: cfnetv1.PolicyDestination{
-					ID:       "appBGUID",
-					Protocol: "tcp",
-					Ports: cfnetv1.Ports{
-						Start: 8080,
-						End:   8080,
+					Destination: cfnetv1.PolicyDestination{
+						ID:       "appBGUID",
+						Protocol: "tcp",
+						Ports: cfnetv1.Ports{
+							Start: 8080,
+							End:   8080,
+						},
 					},
-				},
-			}, {
-				Source: cfnetv1.PolicySource{
-					ID: "appCGUID",
-				},
-				Destination: cfnetv1.PolicyDestination{
-					ID:       "appCGUID",
-					Protocol: "tcp",
-					Ports: cfnetv1.Ports{
-						Start: 8080,
-						End:   8080,
+				}, {
+					Source: cfnetv1.PolicySource{
+						ID: "appBGUID",
 					},
-				},
-			}}, nil)
+					Destination: cfnetv1.PolicyDestination{
+						ID:       "appBGUID",
+						Protocol: "tcp",
+						Ports: cfnetv1.Ports{
+							Start: 8080,
+							End:   8080,
+						},
+					},
+				}},
+				EgressPolicies: []cfnetv1.EgressPolicy{
+					{
+						Source: cfnetv1.EgressPolicySource{
+							ID:   "appCGUID",
+							Type: "app",
+						},
+						Destination: cfnetv1.EgressPolicyDestination{
+							IPs:      []cfnetv1.IP{{Start: "1.2.3.4", End: "1.2.3.5"}},
+							Protocol: "tcp",
+							Ports: []cfnetv1.Ports{{
+								Start: 8080,
+								End:   8080,
+							}},
+						},
+					},
+				}}, nil)
 
 			fakeV3Actor.GetApplicationsBySpaceStub = func(_ string) ([]v3action.Application, v3action.Warnings, error) {
 				return []v3action.Application{
@@ -305,6 +397,10 @@ var _ = Describe("Policy", func() {
 					{
 						Name: "appB",
 						GUID: "appBGUID",
+					},
+					{
+						Name: "appC",
+						GUID: "appCGUID",
 					},
 				}, []string{"GetApplicationsBySpaceWarning"}, nil
 			}
@@ -320,16 +416,29 @@ var _ = Describe("Policy", func() {
 			Expect(policies).To(Equal(
 				[]Policy{{
 					SourceName:      "appA",
+					SourceType:      "app",
 					DestinationName: "appB",
+					DestinationType: "app",
 					Protocol:        "tcp",
 					StartPort:       8080,
 					EndPort:         8080,
 				}, {
 					SourceName:      "appB",
+					SourceType:      "app",
 					DestinationName: "appB",
+					DestinationType: "app",
 					Protocol:        "tcp",
 					StartPort:       8080,
 					EndPort:         8080,
+				}, {
+					SourceName:         "appC",
+					SourceType:         "app",
+					DestinationStartIP: "1.2.3.4",
+					DestinationEndIP:   "1.2.3.5",
+					DestinationType:    "ip",
+					Protocol:           "tcp",
+					StartPort:          8080,
+					EndPort:            8080,
 				}},
 			))
 			Expect(warnings).To(Equal(Warnings([]string{"GetApplicationsBySpaceWarning"})))
@@ -356,7 +465,7 @@ var _ = Describe("Policy", func() {
 
 		Context("when listing the policy fails", func() {
 			BeforeEach(func() {
-				fakeNetworkingClient.ListPoliciesReturns([]cfnetv1.Policy{}, errors.New("apple"))
+				fakeNetworkingClient.ListPoliciesReturns(cfnetv1.PolicyList{}, errors.New("apple"))
 			})
 			It("returns a sensible error", func() {
 				Expect(executeErr).To(MatchError("apple"))
@@ -366,21 +475,22 @@ var _ = Describe("Policy", func() {
 
 	Describe("RemoveNetworkPolicy", func() {
 		BeforeEach(func() {
-			fakeNetworkingClient.ListPoliciesReturns([]cfnetv1.Policy{
-				{
-					Source: cfnetv1.PolicySource{
-						ID: "appAGUID",
-					},
-					Destination: cfnetv1.PolicyDestination{
-						ID:       "appBGUID",
-						Protocol: "udp",
-						Ports: cfnetv1.Ports{
-							Start: 123,
-							End:   345,
+			fakeNetworkingClient.ListPoliciesReturns(
+				cfnetv1.PolicyList{Policies: []cfnetv1.Policy{
+					{
+						Source: cfnetv1.PolicySource{
+							ID: "appAGUID",
+						},
+						Destination: cfnetv1.PolicyDestination{
+							ID:       "appBGUID",
+							Protocol: "udp",
+							Ports: cfnetv1.Ports{
+								Start: 123,
+								End:   345,
+							},
 						},
 					},
-				},
-			}, nil)
+				}}, nil)
 		})
 
 		JustBeforeEach(func() {
@@ -427,7 +537,7 @@ var _ = Describe("Policy", func() {
 
 		Context("when the policy does not exist", func() {
 			BeforeEach(func() {
-				fakeNetworkingClient.ListPoliciesReturns([]cfnetv1.Policy{}, nil)
+				fakeNetworkingClient.ListPoliciesReturns(cfnetv1.PolicyList{}, nil)
 			})
 
 			It("returns an error", func() {
@@ -460,7 +570,7 @@ var _ = Describe("Policy", func() {
 
 		Context("when listing policies fails", func() {
 			BeforeEach(func() {
-				fakeNetworkingClient.ListPoliciesReturns([]cfnetv1.Policy{}, errors.New("apple"))
+				fakeNetworkingClient.ListPoliciesReturns(cfnetv1.PolicyList{}, errors.New("apple"))
 			})
 			It("returns a sensible error", func() {
 				Expect(executeErr).To(MatchError("apple"))

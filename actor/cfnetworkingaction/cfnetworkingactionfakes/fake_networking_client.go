@@ -9,10 +9,10 @@ import (
 )
 
 type FakeNetworkingClient struct {
-	CreatePoliciesStub        func(policies []cfnetv1.Policy) error
+	CreatePoliciesStub        func(policies cfnetv1.PolicyList) error
 	createPoliciesMutex       sync.RWMutex
 	createPoliciesArgsForCall []struct {
-		policies []cfnetv1.Policy
+		policies cfnetv1.PolicyList
 	}
 	createPoliciesReturns struct {
 		result1 error
@@ -20,17 +20,17 @@ type FakeNetworkingClient struct {
 	createPoliciesReturnsOnCall map[int]struct {
 		result1 error
 	}
-	ListPoliciesStub        func(appNames ...string) ([]cfnetv1.Policy, error)
+	ListPoliciesStub        func(appNames ...string) (cfnetv1.PolicyList, error)
 	listPoliciesMutex       sync.RWMutex
 	listPoliciesArgsForCall []struct {
 		appNames []string
 	}
 	listPoliciesReturns struct {
-		result1 []cfnetv1.Policy
+		result1 cfnetv1.PolicyList
 		result2 error
 	}
 	listPoliciesReturnsOnCall map[int]struct {
-		result1 []cfnetv1.Policy
+		result1 cfnetv1.PolicyList
 		result2 error
 	}
 	RemovePoliciesStub        func(policies []cfnetv1.Policy) error
@@ -48,18 +48,13 @@ type FakeNetworkingClient struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeNetworkingClient) CreatePolicies(policies []cfnetv1.Policy) error {
-	var policiesCopy []cfnetv1.Policy
-	if policies != nil {
-		policiesCopy = make([]cfnetv1.Policy, len(policies))
-		copy(policiesCopy, policies)
-	}
+func (fake *FakeNetworkingClient) CreatePolicies(policies cfnetv1.PolicyList) error {
 	fake.createPoliciesMutex.Lock()
 	ret, specificReturn := fake.createPoliciesReturnsOnCall[len(fake.createPoliciesArgsForCall)]
 	fake.createPoliciesArgsForCall = append(fake.createPoliciesArgsForCall, struct {
-		policies []cfnetv1.Policy
-	}{policiesCopy})
-	fake.recordInvocation("CreatePolicies", []interface{}{policiesCopy})
+		policies cfnetv1.PolicyList
+	}{policies})
+	fake.recordInvocation("CreatePolicies", []interface{}{policies})
 	fake.createPoliciesMutex.Unlock()
 	if fake.CreatePoliciesStub != nil {
 		return fake.CreatePoliciesStub(policies)
@@ -76,7 +71,7 @@ func (fake *FakeNetworkingClient) CreatePoliciesCallCount() int {
 	return len(fake.createPoliciesArgsForCall)
 }
 
-func (fake *FakeNetworkingClient) CreatePoliciesArgsForCall(i int) []cfnetv1.Policy {
+func (fake *FakeNetworkingClient) CreatePoliciesArgsForCall(i int) cfnetv1.PolicyList {
 	fake.createPoliciesMutex.RLock()
 	defer fake.createPoliciesMutex.RUnlock()
 	return fake.createPoliciesArgsForCall[i].policies
@@ -101,7 +96,7 @@ func (fake *FakeNetworkingClient) CreatePoliciesReturnsOnCall(i int, result1 err
 	}{result1}
 }
 
-func (fake *FakeNetworkingClient) ListPolicies(appNames ...string) ([]cfnetv1.Policy, error) {
+func (fake *FakeNetworkingClient) ListPolicies(appNames ...string) (cfnetv1.PolicyList, error) {
 	fake.listPoliciesMutex.Lock()
 	ret, specificReturn := fake.listPoliciesReturnsOnCall[len(fake.listPoliciesArgsForCall)]
 	fake.listPoliciesArgsForCall = append(fake.listPoliciesArgsForCall, struct {
@@ -130,24 +125,24 @@ func (fake *FakeNetworkingClient) ListPoliciesArgsForCall(i int) []string {
 	return fake.listPoliciesArgsForCall[i].appNames
 }
 
-func (fake *FakeNetworkingClient) ListPoliciesReturns(result1 []cfnetv1.Policy, result2 error) {
+func (fake *FakeNetworkingClient) ListPoliciesReturns(result1 cfnetv1.PolicyList, result2 error) {
 	fake.ListPoliciesStub = nil
 	fake.listPoliciesReturns = struct {
-		result1 []cfnetv1.Policy
+		result1 cfnetv1.PolicyList
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeNetworkingClient) ListPoliciesReturnsOnCall(i int, result1 []cfnetv1.Policy, result2 error) {
+func (fake *FakeNetworkingClient) ListPoliciesReturnsOnCall(i int, result1 cfnetv1.PolicyList, result2 error) {
 	fake.ListPoliciesStub = nil
 	if fake.listPoliciesReturnsOnCall == nil {
 		fake.listPoliciesReturnsOnCall = make(map[int]struct {
-			result1 []cfnetv1.Policy
+			result1 cfnetv1.PolicyList
 			result2 error
 		})
 	}
 	fake.listPoliciesReturnsOnCall[i] = struct {
-		result1 []cfnetv1.Policy
+		result1 cfnetv1.PolicyList
 		result2 error
 	}{result1, result2}
 }

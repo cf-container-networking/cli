@@ -99,6 +99,24 @@ var _ = Describe("network-policies command", func() {
 			})
 		})
 
+		Context("when egress policies exist", func() {
+			BeforeEach(func() {
+				session := helpers.CF("add-network-policy", appName, "--destination-ips", "1.2.3.4-1.2.3.5")
+				Eventually(session).Should(Exit(0))
+			})
+
+			It("lists all the egress policies", func() {
+				session := helpers.CF("network-policies")
+
+				username, _ := helpers.GetCredentials()
+				Eventually(session).Should(Say(`Listing network policies in org %s / space %s as %s\.\.\.`, orgName, spaceName, username))
+				Consistently(session).ShouldNot(Say("OK"))
+				Eventually(session).Should(Say("source\\s+source type\\s+destination\\s+destination type\\s+protocol\\s+ports"))
+				Eventually(session).Should(Say("%s\\s+app\\s+1.2.3.4-1.2.3.5\\s+ip\\s+tcp\\s+8080[^-]", appName))
+				Eventually(session).Should(Exit(0))
+			})
+		})
+
 		Context("when policies are filtered by a source app", func() {
 			var srcAppName string
 			BeforeEach(func() {

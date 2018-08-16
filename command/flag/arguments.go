@@ -319,7 +319,7 @@ type ResetOrgDefaultIsolationArgs struct {
 }
 
 type AddNetworkPolicyArgs struct {
-	SourceApp string `positional-arg-name:"SOURCE_APP" required:"true" description:"The source app"`
+	SourceName string `positional-arg-name:"SOURCE_NAME" required:"true" description:"The source name (either app or space name)"`
 }
 
 type RemoveNetworkPolicyArgs struct {
