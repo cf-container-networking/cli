@@ -179,7 +179,8 @@ var _ = Describe("remove-network-policy Command", func() {
 			BeforeEach(func() {
 				cmd.DestinationOrg = "coolorg"
 				cmd.DestinationSpace = "coolspace"
-				fakeMembershipActor.GetOrganizationByNameReturns(v3action.Organization{}, v3action.Warnings{}, actionerror.OrganizationNotFoundError{Name: "coolorg"})
+				warnings := v3action.Warnings{"some-org-warning-1", "some-org-warning-2"}
+				fakeMembershipActor.GetOrganizationByNameReturns(v3action.Organization{}, warnings, actionerror.OrganizationNotFoundError{Name: "coolorg"})
 			})
 
 			It("responds with an error", func() {
@@ -187,14 +188,20 @@ var _ = Describe("remove-network-policy Command", func() {
 				Expect(passedOrgName).To(Equal("coolorg"))
 				Expect(executeErr).To(MatchError(actionerror.OrganizationNotFoundError{Name: "coolorg"}))
 			})
+
+			It("prints the warnings", func() {
+				Expect(testUI.Err).To(Say("some-org-warning-1"))
+				Expect(testUI.Err).To(Say("some-org-warning-2"))
+			})
 		})
 
 		When("an invalid space is provided", func() {
 			BeforeEach(func() {
 				cmd.DestinationOrg = "coolorg"
 				cmd.DestinationSpace = "coolspace"
+				warnings := v3action.Warnings{"some-space-warning-1", "some-space-warning-2"}
 				fakeMembershipActor.GetOrganizationByNameReturns(v3action.Organization{GUID: "some-org-guid"}, v3action.Warnings{}, nil)
-				fakeMembershipActor.GetSpaceByNameAndOrganizationReturns(v3action.Space{}, v3action.Warnings{}, actionerror.SpaceNotFoundError{Name: "coolspace"})
+				fakeMembershipActor.GetSpaceByNameAndOrganizationReturns(v3action.Space{}, warnings, actionerror.SpaceNotFoundError{Name: "coolspace"})
 			})
 
 			It("responds with an error", func() {
@@ -202,6 +209,11 @@ var _ = Describe("remove-network-policy Command", func() {
 				Expect(passedSpaceName).To(Equal("coolspace"))
 				Expect(passedOrgGUID).To(Equal("some-org-guid"))
 				Expect(executeErr).To(MatchError(actionerror.SpaceNotFoundError{Name: "coolspace"}))
+			})
+
+			It("prints the warnings", func() {
+				Expect(testUI.Err).To(Say("some-space-warning-1"))
+				Expect(testUI.Err).To(Say("some-space-warning-2"))
 			})
 		})
 

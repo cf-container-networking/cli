@@ -174,6 +174,7 @@ var _ = Describe("add-network-policy Command", func() {
 			BeforeEach(func() {
 				cmd.DestinationOrg = "bananarama"
 				cmd.DestinationSpace = ""
+				fakeMembershipActor.GetOrganizationByNameReturns(v3action.Organization{}, v3action.Warnings{}, actionerror.OrganizationNotFoundError{Name: "bananarama"})
 			})
 
 			It("returns an error", func() {
@@ -205,8 +206,9 @@ var _ = Describe("add-network-policy Command", func() {
 			BeforeEach(func() {
 				cmd.DestinationOrg = "bananarama"
 				cmd.DestinationSpace = "hamdinger"
+				warnings := v3action.Warnings{"some-space-warning-1", "some-space-warning-2"}
 				fakeMembershipActor.GetOrganizationByNameReturns(v3action.Organization{GUID: "some-org-guid"}, v3action.Warnings{}, nil)
-				fakeMembershipActor.GetSpaceByNameAndOrganizationReturns(v3action.Space{}, v3action.Warnings{}, actionerror.SpaceNotFoundError{Name: "bananarama"})
+				fakeMembershipActor.GetSpaceByNameAndOrganizationReturns(v3action.Space{}, warnings, actionerror.SpaceNotFoundError{Name: "bananarama"})
 			})
 
 			It("returns an error", func() {
@@ -214,14 +216,20 @@ var _ = Describe("add-network-policy Command", func() {
 				Expect(passedSpaceName).To(Equal("hamdinger"))
 				Expect(passedOrgGuid).To(Equal("some-org-guid"))
 				Expect(executeErr).To(MatchError(actionerror.SpaceNotFoundError{Name: "bananarama"}))
-				Expect(testUI.Out).NotTo(Say(`Adding network policy`))
+				Expect(fakeNetworkPolicyActor.AddNetworkPolicyCallCount()).To(Equal(0))
+			})
+
+			It("prints the warnings", func() {
+				Expect(testUI.Err).To(Say("some-space-warning-1"))
+				Expect(testUI.Err).To(Say("some-space-warning-2"))
 			})
 		})
 
 		When("a destination space but no destination org is specified", func() {
 			BeforeEach(func() {
 				cmd.DestinationSpace = "hamdinger"
-				fakeMembershipActor.GetSpaceByNameAndOrganizationReturns(v3action.Space{GUID: "some-other-space-guid"}, v3action.Warnings{}, nil)
+				warnings := v3action.Warnings{"some-warning-1", "some-warning-2"}
+				fakeMembershipActor.GetSpaceByNameAndOrganizationReturns(v3action.Space{GUID: "some-other-space-guid"}, warnings, nil)
 			})
 
 			It("displays OK", func() {
@@ -234,6 +242,11 @@ var _ = Describe("add-network-policy Command", func() {
 
 				Expect(testUI.Out).To(Say(`Adding network policy to app %s in org some-org / space some-space as some-user\.\.\.`, srcApp))
 				Expect(testUI.Out).To(Say("OK"))
+			})
+
+			It("prints the warnings", func() {
+				Expect(testUI.Err).To(Say("some-warning-1"))
+				Expect(testUI.Err).To(Say("some-warning-2"))
 			})
 		})
 

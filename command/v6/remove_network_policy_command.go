@@ -58,8 +58,7 @@ func (cmd *RemoveNetworkPolicyCommand) Setup(config command.Config, ui command.U
 }
 
 func (cmd RemoveNetworkPolicyCommand) Execute(args []string) error {
-	switch {
-	case cmd.DestinationOrg != "" && cmd.DestinationSpace == "":
+	if cmd.DestinationOrg != "" && cmd.DestinationSpace == "" {
 		return translatableerror.NetworkPolicyDestinationOrgWithoutSpaceError{}
 	}
 
